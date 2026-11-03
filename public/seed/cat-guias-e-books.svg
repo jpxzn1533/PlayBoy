@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640" width="800" height="640">
+<defs>
+<radialGradient id="g" cx="70%" cy="35%" r="80%"><stop offset="0" stop-color="#2a2a2a"/><stop offset="0.55" stop-color="#111"/><stop offset="1" stop-color="#080808"/></radialGradient>
+<pattern id="p" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#fff" stroke-opacity="0.04"/></pattern>
+<linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop offset="0.45" stop-color="#080808" stop-opacity="0"/><stop offset="1" stop-color="#080808" stop-opacity="0.95"/></linearGradient>
+</defs>
+<rect width="800" height="640" fill="url(#g)"/><rect width="800" height="640" fill="url(#p)"/>
+<line x1="372" y1="138.8" x2="812" y2="78.80000000000001" stroke="#fff" stroke-opacity="0.08" stroke-width="1.5"/>
+<line x1="372" y1="158.8" x2="812" y2="106.80000000000001" stroke="#fff" stroke-opacity="0.16" stroke-width="1.5"/>
+<line x1="372" y1="178.8" x2="812" y2="134.8" stroke="#fff" stroke-opacity="0.24" stroke-width="1.5"/>
+<line x1="372" y1="198.8" x2="812" y2="162.8" stroke="#fff" stroke-opacity="0.32" stroke-width="1.5"/>
+<line x1="372" y1="218.8" x2="812" y2="190.8" stroke="#fff" stroke-opacity="0.08" stroke-width="1.5"/>
+<line x1="372" y1="238.8" x2="812" y2="218.8" stroke="#fff" stroke-opacity="0.16" stroke-width="1.5"/>
+<line x1="372" y1="258.8" x2="812" y2="246.8" stroke="#fff" stroke-opacity="0.24" stroke-width="1.5"/>
+<line x1="372" y1="278.8" x2="812" y2="274.8" stroke="#fff" stroke-opacity="0.32" stroke-width="1.5"/>
+<line x1="372" y1="298.8" x2="812" y2="302.8" stroke="#fff" stroke-opacity="0.08" stroke-width="1.5"/>
+<line x1="372" y1="318.8" x2="812" y2="330.8" stroke="#fff" stroke-opacity="0.16" stroke-width="1.5"/>
+<line x1="372" y1="338.8" x2="812" y2="358.8" stroke="#fff" stroke-opacity="0.24" stroke-width="1.5"/>
+<line x1="372" y1="358.8" x2="812" y2="386.8" stroke="#fff" stroke-opacity="0.32" stroke-width="1.5"/>
+<line x1="372" y1="378.8" x2="812" y2="414.8" stroke="#fff" stroke-opacity="0.08" stroke-width="1.5"/>
+<line x1="372" y1="398.8" x2="812" y2="442.8" stroke="#fff" stroke-opacity="0.16" stroke-width="1.5"/>
+<rect width="800" height="640" fill="url(#f)"/>
+<text x="56" y="570" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#fff" letter-spacing="-1">Guias &amp; E-books</text>
+</svg>

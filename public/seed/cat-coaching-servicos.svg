@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640" width="800" height="640">
+<defs>
+<radialGradient id="g" cx="70%" cy="35%" r="80%"><stop offset="0" stop-color="#2a2a2a"/><stop offset="0.55" stop-color="#111"/><stop offset="1" stop-color="#080808"/></radialGradient>
+<pattern id="p" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#fff" stroke-opacity="0.04"/></pattern>
+<linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop offset="0.45" stop-color="#080808" stop-opacity="0"/><stop offset="1" stop-color="#080808" stop-opacity="0.95"/></linearGradient>
+</defs>
+<rect width="800" height="640" fill="url(#g)"/><rect width="800" height="640" fill="url(#p)"/>
+<polygon points="546,268.8 521,312.10127018922196 471,312.10127018922196 446,268.8 471,225.4987298107781 521,225.49872981077806" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="1.5"/>
+<polygon points="586,268.8 541,346.7422863405995 451,346.7422863405995 406,268.8 450.99999999999994,190.85771365940053 541,190.8577136594005" fill="none" stroke="#fff" stroke-opacity="0.43" stroke-width="1.5"/>
+<polygon points="626,268.8 561,381.383302491977 431,381.383302491977 366,268.8 430.99999999999994,156.216697508023 560.9999999999999,156.21669750802295" fill="none" stroke="#fff" stroke-opacity="0.36" stroke-width="1.5"/>
+<polygon points="666,268.8 581,416.0243186433546 411.00000000000006,416.0243186433546 326,268.8 410.99999999999994,121.57568135664548 580.9999999999999,121.57568135664536" fill="none" stroke="#fff" stroke-opacity="0.29" stroke-width="1.5"/>
+<polygon points="706,268.8 601,450.6653347947321 391.00000000000006,450.66533479473213 286,268.8 390.9999999999999,86.93466520526792 600.9999999999999,86.9346652052678" fill="none" stroke="#fff" stroke-opacity="0.21999999999999997" stroke-width="1.5"/>
+<polygon points="746,268.8 621,485.30635094610966 371.00000000000006,485.30635094610966 246,268.80000000000007 370.9999999999999,52.29364905389039 620.9999999999998,52.29364905389025" fill="none" stroke="#fff" stroke-opacity="0.14999999999999997" stroke-width="1.5"/>
+<rect width="800" height="640" fill="url(#f)"/>
+<text x="56" y="518" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#fff" letter-spacing="-1">Coaching &amp;</text><text x="56" y="570" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#fff" letter-spacing="-1">Serviços</text>
+</svg>

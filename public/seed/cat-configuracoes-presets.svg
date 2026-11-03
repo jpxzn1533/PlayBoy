@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640" width="800" height="640">
+<defs>
+<radialGradient id="g" cx="70%" cy="35%" r="80%"><stop offset="0" stop-color="#2a2a2a"/><stop offset="0.55" stop-color="#111"/><stop offset="1" stop-color="#080808"/></radialGradient>
+<pattern id="p" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#fff" stroke-opacity="0.04"/></pattern>
+<linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop offset="0.45" stop-color="#080808" stop-opacity="0"/><stop offset="1" stop-color="#080808" stop-opacity="0.95"/></linearGradient>
+</defs>
+<rect width="800" height="640" fill="url(#g)"/><rect width="800" height="640" fill="url(#p)"/>
+<rect x="394" y="118.80000000000001" width="300" height="300" fill="none" stroke="#fff" stroke-opacity="0.45" transform="rotate(0 544 268.8)"/>
+<rect x="408" y="132.8" width="272" height="272" fill="none" stroke="#fff" stroke-opacity="0.41000000000000003" transform="rotate(6 544 268.8)"/>
+<rect x="422" y="146.8" width="244" height="244" fill="none" stroke="#fff" stroke-opacity="0.37" transform="rotate(12 544 268.8)"/>
+<rect x="436" y="160.8" width="216" height="216" fill="none" stroke="#fff" stroke-opacity="0.33" transform="rotate(18 544 268.8)"/>
+<rect x="450" y="174.8" width="188" height="188" fill="none" stroke="#fff" stroke-opacity="0.29000000000000004" transform="rotate(24 544 268.8)"/>
+<rect x="464" y="188.8" width="160" height="160" fill="none" stroke="#fff" stroke-opacity="0.25" transform="rotate(30 544 268.8)"/>
+<rect x="478" y="202.8" width="132" height="132" fill="none" stroke="#fff" stroke-opacity="0.21000000000000002" transform="rotate(36 544 268.8)"/>
+<rect x="492" y="216.8" width="104" height="104" fill="none" stroke="#fff" stroke-opacity="0.16999999999999998" transform="rotate(42 544 268.8)"/>
+<rect x="506" y="230.8" width="76" height="76" fill="none" stroke="#fff" stroke-opacity="0.13" transform="rotate(48 544 268.8)"/>
+<rect width="800" height="640" fill="url(#f)"/>
+<text x="56" y="518" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#fff" letter-spacing="-1">Configurações &amp;</text><text x="56" y="570" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#fff" letter-spacing="-1">Presets</text>
+</svg>
