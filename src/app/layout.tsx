@@ -16,6 +16,10 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// Todas as páginas dependem do banco (configurações, sessão, catálogo): renderização a cada
+// requisição, sem acessar o banco durante o build.
+export const dynamic = "force-dynamic";
+
 export const viewport: Viewport = { themeColor: "#080808", colorScheme: "dark" };
 
 /** Escolhe preto ou branco para o texto sobre a cor de destaque, conforme o contraste. */
