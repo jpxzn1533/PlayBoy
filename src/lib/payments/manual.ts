@@ -10,6 +10,7 @@ export const manualProvider: PaymentProvider = {
   label: "Pix manual (confirmação pelo admin)",
   isSandbox: false,
   methods: ["PIX"],
+  requiresCustomerDocument: false,
 
   async createCharge() {
     const pixKey = process.env.PIX_KEY || null;

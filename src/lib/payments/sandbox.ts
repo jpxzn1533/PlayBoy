@@ -8,6 +8,7 @@ export const sandboxProvider: PaymentProvider = {
   label: "Sandbox (simulado)",
   isSandbox: true,
   methods: ["PIX", "CREDIT_CARD", "BOLETO"],
+  requiresCustomerDocument: false,
 
   async createCharge({ orderNumber, amountCents, method }) {
     const providerRef = `sbx_${randomToken(12)}`;

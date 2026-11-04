@@ -52,8 +52,26 @@ Para testar com dados fictícios, use `npm run db:seed:demo`, que também cria u
 
 - **`sandbox`** (desenvolvimento): instruções de Pix/boleto simuladas e o cliente pode simular aprovação ou recusa. Nenhuma cobrança real. **Bloqueado em produção** — com ele qualquer cliente aprovaria o próprio pedido. Se estiver configurado em produção, a loja usa o modo manual automaticamente.
 - **`manual`** (padrão em produção): só Pix. O pedido mostra a chave `PIX_KEY` ao cliente; quando o dinheiro cair, confirme em **Admin → Pedidos → Confirmar pagamento** e os produtos são liberados.
+- **`ironpay`**: [Iron Pay](https://docs.ironpayapp.com.br) com **Pix (QR Code + copia e cola)** e **boleto**, confirmação automática.
 
-Para integrar um provedor autorizado (Mercado Pago, Stripe, Pagar.me…), implemente a interface `PaymentProvider` em `src/lib/payments/`, registre-a em `src/lib/payments/index.ts` e aponte o webhook do provedor para `/api/payments/webhook/<provedor>`. O fluxo de pedido (reserva de estoque, confirmação, cancelamento e reembolso) já está pronto em `src/lib/orders.ts`.
+### Iron Pay
+
+**Configuração (painel da Iron Pay):**
+1. Gere o **token de API** em Configurações → API.
+2. Crie um **produto digital** (ex.: "Pedido PLAYBOY STORE") com uma **oferta**, e copie o hash de cada um. A API exige esses dois hashes; o valor cobrado é sempre o total do pedido da loja (com cupons), enviado como um único item "Pedido PB-000123 — itens…".
+
+**Variáveis (Vercel):** `PAYMENT_PROVIDER=ironpay`, `IRONPAY_API_TOKEN`, `IRONPAY_OFFER_HASH`, `IRONPAY_PRODUCT_HASH`, `PAYMENT_WEBHOOK_SECRET` (texto aleatório longo) e `APP_URL` com o domínio público — a URL de postback é montada automaticamente: `APP_URL/api/payments/webhook/ironpay?secret=…`.
+
+**Como funciona:**
+- No checkout o cliente informa CPF/CNPJ (validado pelos dígitos verificadores) e telefone, exigidos pela Iron Pay; ficam salvos no perfil.
+- A página do pedido mostra o QR Code Pix ou a linha digitável/PDF do boleto, e um botão **"Já paguei — verificar pagamento"** que consulta a Iron Pay na hora.
+- **Segurança do postback:** a Iron Pay não assina as notificações. Por isso a loja exige o segredo na URL e **nunca confia no conteúdo do aviso**: usa só o hash da transação e confirma status e valor em `GET /transactions/{hash}` com o token da loja. Valor divergente não libera o pedido.
+- Se a cobrança não puder ser criada, o pedido é cancelado, o estoque devolvido e os itens voltam ao carrinho.
+- Pagamento recebido em pedido já cancelado não reabre o pedido: fica registrado no histórico e a equipe recebe um e-mail para estornar pelo painel da Iron Pay.
+- **Cartão de crédito fica desativado**: a API da Iron Pay recebe o número completo do cartão pelo servidor da loja, o que exige certificação PCI DSS. Use o checkout/link de pagamento da própria Iron Pay se quiser oferecer cartão.
+- Reembolsos são feitos no painel da Iron Pay; depois marque o pedido como **Reembolsado** no admin (ou aguarde o postback).
+
+Para integrar outro provedor (Mercado Pago, Stripe, Pagar.me…), implemente a interface `PaymentProvider` em `src/lib/payments/`, registre-a em `src/lib/payments/index.ts` e aponte o webhook do provedor para `/api/payments/webhook/<provedor>`. O fluxo de pedido (reserva de estoque, confirmação, cancelamento e reembolso) já está pronto em `src/lib/orders.ts`.
 
 ## E-mails
 
@@ -112,7 +130,9 @@ Isso cria as tabelas, ativa o RLS e cria sua conta de administrador, as configur
 | `SUPABASE_SERVICE_ROLE_KEY` | chave service_role |
 | `SUPABASE_STORAGE_BUCKET` | `uploads` |
 | `APP_URL` | `https://seu-dominio.com.br` (links dos e-mails) |
-| `PAYMENT_PROVIDER` | `manual` |
+| `PAYMENT_PROVIDER` | `ironpay` (ou `manual` para Pix manual) |
+| `IRONPAY_API_TOKEN` / `IRONPAY_OFFER_HASH` / `IRONPAY_PRODUCT_HASH` | dados da sua conta Iron Pay (veja a seção Pagamentos) |
+| `PAYMENT_WEBHOOK_SECRET` | texto aleatório longo (protege a URL de postback) |
 | `PIX_KEY` / `PIX_KEY_HOLDER` | sua chave Pix e o nome do titular |
 | `SMTP_*` | dados do seu provedor de e-mail (Resend, Brevo, SES…) |
 

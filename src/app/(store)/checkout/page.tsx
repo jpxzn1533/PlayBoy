@@ -33,7 +33,7 @@ export default async function CheckoutPage() {
             </dl>
             <p className="mt-4 text-xs text-subtle">Os produtos digitais ficam disponíveis na sua conta e são enviados para este e-mail.</p>
           </section>
-          <CheckoutForm disabled={!user.emailVerifiedAt} sandbox={provider.isSandbox} manual={provider.id === "manual"} methods={provider.methods} totalLabel={formatMoney(summary.totalCents)} />
+          <CheckoutForm disabled={!user.emailVerifiedAt} sandbox={provider.isSandbox} manual={provider.id === "manual"} methods={provider.methods} requireDocument={provider.requiresCustomerDocument} defaultDocument={user.document} defaultPhone={user.phone} totalLabel={formatMoney(summary.totalCents)} />
         </div>
         <aside className="space-y-4 lg:sticky lg:top-36 lg:self-start">
           <div className="card divide-y divide-line">

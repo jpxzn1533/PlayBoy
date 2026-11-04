@@ -39,6 +39,8 @@ model User {
   permissions      String[]      @default([])
   status           AccountStatus @default(ACTIVE)
   phone            String?
+  // CPF ou CNPJ (somente números). Exigido pelo gateway de pagamento no checkout.
+  document         String?
   emailVerifiedAt  DateTime?
   lastActiveAt     DateTime?
   createdAt        DateTime      @default(now())

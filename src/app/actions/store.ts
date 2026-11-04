@@ -7,12 +7,12 @@ import { AuthError, requireUser } from "@/lib/auth/guards";
 import { getCurrentUser, getRequestMeta } from "@/lib/auth/session";
 import { getCartSummary, getOrCreateCart, MAX_QTY_PER_ITEM } from "@/lib/cart";
 import { evaluateCoupon } from "@/lib/pricing";
-import { createOrderFromCart, changeOrderStatus, markOrderPaid, OrderError } from "@/lib/orders";
-import { getPaymentProvider } from "@/lib/payments";
+import { applyPaymentEvent, createOrderFromCart, changeOrderStatus, markOrderPaid, OrderError } from "@/lib/orders";
+import { getPaymentProvider, getProviderById } from "@/lib/payments";
 import { getSettings } from "@/lib/settings";
 import { absoluteUrl, emailLayout, escapeHtml, sendEmail } from "@/lib/mail";
 import { rateLimit } from "@/lib/rate-limit";
-import { checkoutSchema, formToObject, leadSchema, reviewSchema, zodErrors, type ActionState } from "@/lib/validation";
+import { checkoutSchema, documentSchema, formToObject, leadSchema, phoneDigitsSchema, reviewSchema, zodErrors, type ActionState } from "@/lib/validation";
 
 const refreshStore = () => revalidatePath("/", "layout");
 
@@ -169,13 +169,32 @@ export async function checkoutAction(_: ActionState, formData: FormData): Promis
 
   const parsed = checkoutSchema.safeParse(formToObject(formData));
   if (!parsed.success) return zodErrors(parsed.error);
-  if (!getPaymentProvider().methods.includes(parsed.data.paymentMethod))
+  const provider = getPaymentProvider();
+  if (!provider.methods.includes(parsed.data.paymentMethod))
     return { ok: false, fieldErrors: { paymentMethod: ["Forma de pagamento indisponível no momento."] }, error: "Revise os campos destacados." };
+
+  // Gateways como a Iron Pay exigem CPF/CNPJ e telefone. Ficam salvos no perfil para a próxima compra.
+  let buyer: { id: string; name: string; email: string; document: string | null; phone: string | null } = user;
+  if (provider.requiresCustomerDocument) {
+    const doc = documentSchema.safeParse(formData.get("document") ?? "");
+    const phone = phoneDigitsSchema.safeParse(formData.get("phone") ?? "");
+    if (!doc.success || !phone.success)
+      return {
+        ok: false,
+        error: "Revise os campos destacados.",
+        fieldErrors: {
+          ...(doc.success ? {} : { document: doc.error.issues.map((i) => i.message) }),
+          ...(phone.success ? {} : { phone: phone.error.issues.map((i) => i.message) }),
+        },
+      };
+    await prisma.user.update({ where: { id: user.id }, data: { document: doc.data, phone: phone.data } });
+    buyer = { ...user, document: doc.data, phone: phone.data };
+  }
 
   let orderNumber: number;
   try {
     const summary = await getCartSummary();
-    const order = await createOrderFromCart({ user, summary, paymentMethod: parsed.data.paymentMethod, notes: parsed.data.notes });
+    const order = await createOrderFromCart({ user: buyer, summary, paymentMethod: parsed.data.paymentMethod, notes: parsed.data.notes });
     orderNumber = order.number;
   } catch (e) {
     if (e instanceof OrderError) return { ok: false, error: e.message };
@@ -200,6 +219,34 @@ export async function simulatePaymentAction(formData: FormData) {
     await markOrderPaid(order.id, user.email, "Pagamento aprovado (simulação sandbox).");
   }
   revalidatePath(`/conta/pedidos/${order.number}`);
+}
+
+/**
+ * "Já paguei": consulta o status direto no gateway. Funciona mesmo se o postback se perder.
+ * O cliente só consegue verificar os próprios pedidos.
+ */
+export async function checkPaymentAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  if (!rateLimit(`paycheck:${user.id}`, 10, 5 * 60 * 1000).ok) return { ok: false, error: "Aguarde um pouco antes de verificar novamente." };
+  const order = await prisma.order.findFirst({
+    where: { id: String(formData.get("orderId") ?? ""), userId: user.id },
+    include: { payments: { orderBy: { createdAt: "desc" }, take: 1 } },
+  });
+  const payment = order?.payments[0];
+  const provider = payment ? getProviderById(payment.provider) : null;
+  if (!order || !payment?.providerRef || !provider?.fetchStatus) return { ok: false, error: "Verificação indisponível para este pedido." };
+  if (order.paymentStatus === "PAID") return { ok: true, message: "Pagamento já confirmado." };
+
+  try {
+    const event = await provider.fetchStatus(payment.providerRef);
+    if (event.status === "PENDING") return { ok: false, error: "Ainda não identificamos seu pagamento. Pix costuma cair em segundos; boleto, em até 2 dias úteis." };
+    const result = await applyPaymentEvent(event, `cliente:${user.email}`);
+    if (!result.ok) return { ok: false, error: "Não foi possível confirmar o pagamento. Fale com o suporte informando o número do pedido." };
+  } catch {
+    return { ok: false, error: "Não foi possível consultar o pagamento agora. Tente novamente em instantes." };
+  }
+  revalidatePath(`/conta/pedidos/${order.number}`);
+  return { ok: true, message: "Status do pagamento atualizado." };
 }
 
 export async function cancelMyOrderAction(formData: FormData) {

@@ -5,7 +5,7 @@ import { formatMoney, formatOrderNumber } from "./format";
 import { emailLayout, escapeHtml, sendEmail, absoluteUrl } from "./mail";
 import { getSettings } from "./settings";
 import type { CartSummary } from "./cart";
-import { getPaymentProvider } from "./payments";
+import { getPaymentProvider, PaymentProviderError, type PaymentEvent } from "./payments";
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   PENDING: "Aguardando pagamento",
@@ -26,7 +26,7 @@ export class OrderError extends Error {}
 
 /** Cria o pedido a partir do carrinho em uma transação: reserva estoque, aplica cupom e registra o pagamento. */
 export async function createOrderFromCart(params: {
-  user: { id: string; name: string; email: string };
+  user: { id: string; name: string; email: string; document?: string | null; phone?: string | null };
   summary: CartSummary;
   paymentMethod: PaymentMethod;
   notes: string | null;
@@ -88,13 +88,28 @@ export async function createOrderFromCart(params: {
     return created;
   });
 
-  const charge = await provider.createCharge({
-    orderId: order.id,
-    orderNumber: order.number,
-    amountCents: order.totalCents,
-    method: paymentMethod,
-    customer: { name: user.name, email: user.email },
-  });
+  let charge: Awaited<ReturnType<typeof provider.createCharge>>;
+  try {
+    const secret = process.env.PAYMENT_WEBHOOK_SECRET ?? "";
+    charge = await provider.createCharge({
+      orderId: order.id,
+      orderNumber: order.number,
+      amountCents: order.totalCents,
+      method: paymentMethod,
+      customer: { name: user.name, email: user.email, document: user.document ?? null, phone: user.phone ?? null },
+      items: summary.lines.map((l) => ({ name: l.name, unitCents: l.unitCents, quantity: l.quantity })),
+      postbackUrl: `${absoluteUrl(`/api/payments/webhook/${provider.id}`)}?secret=${encodeURIComponent(secret)}`,
+    });
+  } catch (e) {
+    // Cobrança não gerada: cancela o pedido (devolve estoque e cupom) e devolve os itens ao carrinho.
+    await changeOrderStatus(order.id, "CANCELLED", "sistema", "Falha ao gerar a cobrança no gateway.").catch(() => {});
+    await prisma.cartItem
+      .createMany({ data: summary.lines.map((l) => ({ cartId: summary.cartId!, productId: l.productId, quantity: l.quantity })), skipDuplicates: true })
+      .catch(() => {});
+    if (e instanceof PaymentProviderError) throw new OrderError(e.message);
+    console.error("[orders] falha ao gerar cobrança", e);
+    throw new OrderError("Não foi possível gerar o pagamento. Tente novamente em instantes.");
+  }
   await prisma.payment.create({
     data: {
       orderId: order.id,
@@ -108,6 +123,40 @@ export async function createOrderFromCart(params: {
 
   void notifyNewOrder(order.id);
   return order;
+}
+
+/**
+ * Aplica ao pedido um status de pagamento já confirmado pelo provedor (webhook ou consulta).
+ * Pagamento só é aceito se o valor confirmado bater com o valor cobrado.
+ */
+export async function applyPaymentEvent(event: PaymentEvent, actor: string) {
+  const payment = await prisma.payment.findUnique({ where: { providerRef: event.providerRef }, include: { order: true } });
+  if (!payment) return { ok: false as const, reason: "not_found" };
+  const { order } = payment;
+
+  if (event.status === "PAID") {
+    if (event.amountCents !== undefined && event.amountCents !== payment.amountCents) {
+      console.error(`[orders] valor divergente no pedido ${order.number}: esperado ${payment.amountCents}, recebido ${event.amountCents}`);
+      return { ok: false as const, reason: "amount_mismatch" };
+    }
+    if (order.status === "CANCELLED" || order.status === "REFUNDED") {
+      // Cliente pagou um pedido já cancelado (ex.: cancelou e pagou o Pix mesmo assim).
+      // Não reabre o pedido: registra e avisa a equipe para estornar pelo painel da Iron Pay.
+      const note = "Pagamento recebido após o cancelamento. Estorne o valor no painel do gateway.";
+      const already = await prisma.orderStatusHistory.findFirst({ where: { orderId: order.id, note } });
+      if (!already) {
+        await prisma.orderStatusHistory.create({ data: { orderId: order.id, status: order.status, note, createdBy: actor } });
+        void notifyPaidAfterCancel(order.number, order.id, payment.amountCents);
+      }
+      return { ok: false as const, reason: "paid_after_cancel" };
+    }
+    if (order.paymentStatus !== "PAID") await markOrderPaid(order.id, actor, "Pagamento confirmado pelo gateway.");
+  } else if (event.status === "FAILED") {
+    if (order.status === "PENDING") await changeOrderStatus(order.id, "CANCELLED", actor, "Pagamento recusado ou expirado no gateway.");
+  } else if (event.status === "REFUNDED") {
+    if (order.status !== "REFUNDED" && order.status !== "CANCELLED") await changeOrderStatus(order.id, "REFUNDED", actor, "Reembolso confirmado pelo gateway.");
+  }
+  return { ok: true as const, orderNumber: order.number, status: event.status };
 }
 
 /** Confirma o pagamento: pedido concluído (entrega digital), contadores de venda atualizados. */
@@ -178,6 +227,24 @@ export async function changeOrderStatus(orderId: string, status: OrderStatus, ac
     await tx.orderStatusHistory.create({ data: { orderId, status, note, createdBy: actor } });
     return tx.order.update({ where: { id: orderId }, data: { status, paymentStatus } });
   });
+}
+
+async function notifyPaidAfterCancel(orderNumber: number, orderId: string, amountCents: number) {
+  try {
+    const settings = await getSettings();
+    if (!settings.notificationEmail) return;
+    await sendEmail(
+      settings.notificationEmail,
+      `Atenção: pagamento recebido no pedido cancelado ${formatOrderNumber(orderNumber)}`,
+      emailLayout(
+        "Pagamento após cancelamento",
+        `<p>O pedido <strong>${formatOrderNumber(orderNumber)}</strong> estava cancelado, mas o gateway confirmou um pagamento de <strong>${formatMoney(amountCents)}</strong>.</p><p>Estorne o valor ao cliente pelo painel da Iron Pay ou entre em contato com ele.</p>`,
+        { label: "Abrir pedido", url: absoluteUrl(`/admin/pedidos/${orderId}`) },
+      ),
+    );
+  } catch (err) {
+    console.error("[orders] falha ao notificar pagamento após cancelamento", err);
+  }
 }
 
 async function notifyNewOrder(orderId: string) {

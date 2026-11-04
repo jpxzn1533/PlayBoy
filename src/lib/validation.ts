@@ -139,6 +139,44 @@ export const leadSchema = z.object({
   source: z.string().trim().max(60).default("Site"),
 });
 
+// ───────── CPF / CNPJ / telefone
+
+const onlyDigits = (v: string) => v.replace(/\D/g, "");
+
+function validCpf(cpf: string) {
+  if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+  const calc = (len: number) => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(cpf[i]) * (len + 1 - i);
+    const r = (sum * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  return calc(9) === Number(cpf[9]) && calc(10) === Number(cpf[10]);
+}
+
+function validCnpj(cnpj: string) {
+  if (!/^\d{14}$/.test(cnpj) || /^(\d)\1{13}$/.test(cnpj)) return false;
+  const calc = (len: number) => {
+    const weights = len === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const sum = weights.reduce((s, w, i) => s + w * Number(cnpj[i]), 0);
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return calc(12) === Number(cnpj[12]) && calc(13) === Number(cnpj[13]);
+}
+
+/** CPF ou CNPJ válido, normalizado para somente números. */
+export const documentSchema = z
+  .string({ required_error: "Informe seu CPF ou CNPJ." })
+  .transform(onlyDigits)
+  .refine((v) => validCpf(v) || validCnpj(v), "CPF ou CNPJ inválido.");
+
+/** Telefone brasileiro com DDD (10 ou 11 dígitos), normalizado para somente números. */
+export const phoneDigitsSchema = z
+  .string({ required_error: "Informe seu telefone com DDD." })
+  .transform((v) => onlyDigits(v).replace(/^55(?=\d{10,11}$)/, ""))
+  .refine((v) => /^[1-9]{2}9?\d{8}$/.test(v), "Telefone inválido. Use DDD + número.");
+
 export const checkoutSchema = z.object({
   paymentMethod: z.enum(["PIX", "CREDIT_CARD", "BOLETO"], { errorMap: () => ({ message: "Escolha um método de pagamento." }) }),
   notes: optionalText(500),

@@ -5,7 +5,9 @@ import { CheckCircle2, Download, PartyPopper } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireUserPage } from "@/lib/auth/guards";
 import { formatDateTime, formatMoney, formatOrderNumber } from "@/lib/format";
-import { getPaymentProvider, PAYMENT_METHOD_LABEL, type PaymentInstructions } from "@/lib/payments";
+import QRCode from "qrcode";
+import { getPaymentProvider, getProviderById, PAYMENT_METHOD_LABEL, type PaymentInstructions } from "@/lib/payments";
+import { CheckPaymentButton } from "./check-payment-button";
 import { ORDER_STATUS_LABEL } from "@/lib/orders";
 import { firstParam } from "@/lib/utils";
 import { cancelMyOrderAction, simulatePaymentAction } from "@/app/actions/store";
@@ -39,7 +41,12 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
   const payment = order.payments[0];
   const instructions = payment?.instructions as PaymentInstructions | null;
   const awaiting = order.paymentStatus === "PENDING" && order.status === "PENDING";
-  const sandbox = getPaymentProvider().isSandbox;
+  const sandbox = getPaymentProvider().isSandbox && payment?.provider === "sandbox";
+  const canCheck = !!payment?.providerRef && !!getProviderById(payment.provider)?.fetchStatus;
+  const qrSvg =
+    awaiting && instructions?.kind === "pix"
+      ? await QRCode.toString(instructions.copyPaste, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#080808", light: "#ffffff" } }).catch(() => null)
+      : null;
 
   return (
     <div className="space-y-6">
@@ -70,11 +77,24 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           <h2 className="heading-md mb-1">Pagamento · {PAYMENT_METHOD_LABEL[order.paymentMethod]}</h2>
           <p className="mb-4 text-sm text-muted">Valor: <strong className="text-fg">{formatMoney(order.totalCents)}</strong></p>
           {instructions?.kind === "pix" && (
-            <div className="space-y-2">
-              <p className="text-xs text-subtle">Pix copia e cola</p>
-              <div className="flex gap-2">
-                <code className="flex-1 truncate rounded-lg border border-line bg-surface-2 px-3 py-2.5 font-mono text-xs">{instructions.copyPaste}</code>
-                <CopyButton value={instructions.copyPaste} />
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+              {qrSvg && (
+                <div
+                  className="mx-auto w-44 shrink-0 overflow-hidden rounded-xl bg-white p-2 sm:mx-0"
+                  aria-label="QR Code Pix"
+                  role="img"
+                  // SVG gerado localmente pela biblioteca qrcode (somente formas, sem texto do usuário).
+                  dangerouslySetInnerHTML={{ __html: qrSvg }}
+                />
+              )}
+              <div className="min-w-0 flex-1 space-y-2">
+                <p className="text-sm text-muted">Abra o app do seu banco, escolha pagar com Pix e escaneie o QR Code ou use o código copia e cola.</p>
+                <p className="text-xs text-subtle">Pix copia e cola</p>
+                <div className="flex gap-2">
+                  <code className="flex-1 truncate rounded-lg border border-line bg-surface-2 px-3 py-2.5 font-mono text-xs">{instructions.copyPaste}</code>
+                  <CopyButton value={instructions.copyPaste} />
+                </div>
+                {instructions.expiresAt && <p className="text-xs text-subtle">Válido até {formatDateTime(instructions.expiresAt)}.</p>}
               </div>
             </div>
           )}
@@ -85,6 +105,12 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                 <code className="flex-1 truncate rounded-lg border border-line bg-surface-2 px-3 py-2.5 font-mono text-xs">{instructions.barcode}</code>
                 <CopyButton value={instructions.barcode} />
               </div>
+              {instructions.url && /^https:\/\//.test(instructions.url) && (
+                <a href={instructions.url} target="_blank" rel="noopener noreferrer" className={buttonClass("outline", "sm", "mt-1")}>
+                  Abrir boleto (PDF)
+                </a>
+              )}
+              {instructions.dueDate && <p className="text-xs text-subtle">Vencimento: {formatDateTime(instructions.dueDate)}.</p>}
             </div>
           )}
           {instructions?.kind === "card" && <p className="text-sm text-muted">{instructions.message}</p>}
@@ -107,6 +133,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           )}
 
           <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-5">
+            {canCheck && <CheckPaymentButton orderId={order.id} />}
             {sandbox && (
               <>
                 <form action={simulatePaymentAction}>

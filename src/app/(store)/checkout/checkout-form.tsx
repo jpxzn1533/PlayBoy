@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Barcode, CreditCard, QrCode } from "lucide-react";
 import { checkoutAction } from "@/app/actions/store";
-import { Form, Checkbox, Field, FormMessage, SubmitButton, Textarea } from "@/components/ui/form";
+import { Form, Checkbox, Field, FormMessage, Input, SubmitButton, Textarea } from "@/components/ui/form";
 import type { ActionState } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 
@@ -20,12 +20,18 @@ export function CheckoutForm({
   manual,
   methods,
   totalLabel,
+  requireDocument,
+  defaultDocument,
+  defaultPhone,
 }: {
   disabled: boolean;
   sandbox: boolean;
   manual: boolean;
   methods: string[];
   totalLabel: string;
+  requireDocument: boolean;
+  defaultDocument: string | null;
+  defaultPhone: string | null;
 }) {
   const [state, action] = useActionState<ActionState, FormData>(checkoutAction, {});
   const available = METHODS.filter((m) => methods.includes(m.value));
@@ -34,9 +40,23 @@ export function CheckoutForm({
 
   return (
     <Form action={action} className="space-y-6" noValidate>
+      {requireDocument && (
+        <section className="card p-6">
+          <h2 className="heading-md mb-1">Dados para pagamento</h2>
+          <p className="mb-4 text-xs text-subtle">Exigidos pelo processador de pagamentos. Ficam salvos na sua conta para as próximas compras.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="CPF ou CNPJ" name="document" error={fe.document}>
+              <Input name="document" defaultValue={defaultDocument ?? ""} inputMode="numeric" autoComplete="off" placeholder="000.000.000-00" maxLength={18} invalid={!!fe.document} />
+            </Field>
+            <Field label="Telefone com DDD" name="phone" error={fe.phone}>
+              <Input name="phone" defaultValue={defaultPhone ?? ""} inputMode="tel" autoComplete="tel" placeholder="(11) 99999-9999" maxLength={20} invalid={!!fe.phone} />
+            </Field>
+          </div>
+        </section>
+      )}
       <section className="card p-6">
         <h2 className="heading-md mb-4">Forma de pagamento</h2>
-        <div className={cn("grid gap-3", available.length > 1 && "sm:grid-cols-3")} role="radiogroup">
+        <div className={cn("grid gap-3", available.length === 2 && "sm:grid-cols-2", available.length > 2 && "sm:grid-cols-3")} role="radiogroup">
           {available.map(({ value, label, desc, icon: Icon }) => (
             <label
               key={value}
