@@ -23,6 +23,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
       items: { include: { product: { select: { id: true } } } },
       payments: { orderBy: { createdAt: "desc" } },
       history: { orderBy: { createdAt: "desc" } },
+      ticket: { select: { number: true, status: true, deliveredAt: true } },
     },
   });
   if (!order) notFound();
@@ -101,6 +102,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         </div>
 
         <div className="space-y-6">
+          {order.ticket && (
+            <Panel title="Entrega manual">
+              <p className="text-sm text-muted">{order.ticket.deliveredAt ? "Entrega concluída pelo chat." : "Este pedido tem entrega manual pelo chat de atendimento."}</p>
+              <Link href={`/admin/atendimento/${order.ticket.number}`} className="mt-3 inline-block text-sm underline underline-offset-4">Abrir chat da entrega</Link>
+            </Panel>
+          )}
           <Panel title="Cliente">
             <p className="font-medium">{order.customerName}</p>
             <p className="text-sm text-muted">{order.customerEmail}</p>

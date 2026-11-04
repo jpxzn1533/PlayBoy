@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2, Clock, PackageCheck, ShieldCheck, XCircle, Zap } from "lucide-react";
+import { CheckCircle2, Clock, MessageSquare, PackageCheck, ShieldCheck, XCircle, Zap } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getProductCards } from "@/lib/catalog";
@@ -130,6 +130,9 @@ export default async function ProductPage({ params }: Props) {
 
             <ul className="mt-6 space-y-2.5 border-t border-line pt-5 text-sm text-muted">
               <li className="flex items-center gap-2.5"><Zap className="h-4 w-4 text-fg" /> {product.deliveryType}</li>
+              {product.manualDelivery && (
+                <li className="flex items-start gap-2.5"><MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-fg" /> Entrega manual pelo chat de atendimento, em até 24h a 48h após o pagamento</li>
+              )}
               <li className="flex items-center gap-2.5"><ShieldCheck className="h-4 w-4 text-fg" /> Pagamento seguro e garantia PLAYBOY STORE</li>
               <li className="flex items-center gap-2.5"><PackageCheck className="h-4 w-4 text-fg" /> Acesso pela sua conta, a qualquer momento</li>
             </ul>

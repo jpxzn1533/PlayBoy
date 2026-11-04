@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, CreditCard, Heart, LayoutDashboard, LogOut, Package, Shield, User } from "lucide-react";
+import { ChevronDown, CreditCard, Heart, LayoutDashboard, LogOut, MessageSquare, Package, Shield, User } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 
 export function UserMenu({ name, email, isAdmin }: { name: string; email: string; isAdmin: boolean }) {
@@ -32,6 +32,7 @@ export function UserMenu({ name, email, isAdmin }: { name: string; email: string
     { href: "/conta/pedidos", label: "Meus pedidos", icon: Package },
     { href: "/conta/pagamentos", label: "Pagamentos", icon: CreditCard },
     { href: "/conta/favoritos", label: "Favoritos", icon: Heart },
+    { href: "/conta/atendimento", label: "Atendimento", icon: MessageSquare },
     { href: "/conta/seguranca", label: "Segurança", icon: Shield },
   ];
 

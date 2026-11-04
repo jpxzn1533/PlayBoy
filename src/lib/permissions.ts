@@ -3,6 +3,7 @@ export const ADMIN_PERMISSIONS = {
   products: "Produtos",
   categories: "Categorias",
   orders: "Vendas e pedidos",
+  support: "Atendimento e entrega de contas",
   customers: "Clientes",
   leads: "Leads",
   reviews: "Avaliações",

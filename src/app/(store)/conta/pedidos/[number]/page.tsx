@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2, Download, PartyPopper } from "lucide-react";
+import { CheckCircle2, Clock, Download, MessageSquare, PartyPopper } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireUserPage } from "@/lib/auth/guards";
 import { formatDateTime, formatMoney, formatOrderNumber } from "@/lib/format";
@@ -31,7 +31,8 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
   const order = await prisma.order.findFirst({
     where: { number: n, userId: user.id },
     include: {
-      items: { include: { product: { select: { slug: true, deliveryType: true } } } },
+      items: { include: { product: { select: { slug: true, deliveryType: true, manualDelivery: true } } } },
+      ticket: { select: { number: true } },
       payments: { orderBy: { createdAt: "desc" } },
       history: { orderBy: { createdAt: "asc" } },
     },
@@ -169,11 +170,16 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                 )}
                 <p className="text-xs text-subtle">{item.quantity} × {formatMoney(item.unitPriceCents)}</p>
               </div>
-              {order.paymentStatus === "PAID" && (
-                <span className="flex items-center gap-1.5 rounded-md border border-success/25 bg-success/10 px-2.5 py-1 text-xs text-success">
-                  <Download className="h-3.5 w-3.5" /> Acesso liberado
-                </span>
-              )}
+              {order.paymentStatus === "PAID" &&
+                (item.product?.manualDelivery && order.status !== "COMPLETED" ? (
+                  <span className="flex items-center gap-1.5 rounded-md border border-warning/25 bg-warning/10 px-2.5 py-1 text-xs text-warning">
+                    <Clock className="h-3.5 w-3.5" /> Entrega manual em andamento
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 rounded-md border border-success/25 bg-success/10 px-2.5 py-1 text-xs text-success">
+                    <Download className="h-3.5 w-3.5" /> {item.product?.manualDelivery ? "Entregue" : "Acesso liberado"}
+                  </span>
+                ))}
               <p className="w-24 text-right font-medium">{formatMoney(item.totalCents)}</p>
             </div>
           ))}
@@ -185,11 +191,23 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           )}
           <div className="flex justify-between border-t border-line pt-2 text-base font-semibold"><dt>Total</dt><dd>{formatMoney(order.totalCents)}</dd></div>
         </dl>
-        {order.paymentStatus === "PAID" && (
-          <p className="border-t border-line bg-surface-2 px-6 py-4 text-sm text-muted">
-            Os arquivos e instruções de acesso foram enviados para <strong className="text-fg">{order.customerEmail}</strong>. Para serviços, nossa equipe entrará em contato em até 24h.
-          </p>
-        )}
+        {order.paymentStatus === "PAID" &&
+          (order.ticket ? (
+            <div className="flex flex-col gap-3 border-t border-line bg-surface-2 px-6 py-4 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                {order.status === "COMPLETED"
+                  ? "Entrega concluída. Os dados estão no chat de atendimento."
+                  : "A entrega deste pedido é manual e acontece pelo chat de atendimento, em até 24h a 48h."}
+              </p>
+              <Link href={`/conta/atendimento/${order.ticket.number}`} className={buttonClass("primary", "sm", "shrink-0")}>
+                <MessageSquare className="h-3.5 w-3.5" /> Abrir chat da entrega
+              </Link>
+            </div>
+          ) : (
+            <p className="border-t border-line bg-surface-2 px-6 py-4 text-sm text-muted">
+              Os arquivos e instruções de acesso foram enviados para <strong className="text-fg">{order.customerEmail}</strong>. Para serviços, nossa equipe entrará em contato em até 24h.
+            </p>
+          ))}
       </section>
 
       <section className="card p-6">

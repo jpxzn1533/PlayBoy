@@ -6,6 +6,7 @@ import { emailLayout, escapeHtml, sendEmail, absoluteUrl } from "./mail";
 import { getSettings } from "./settings";
 import type { CartSummary } from "./cart";
 import { getPaymentProvider, PaymentProviderError, type PaymentEvent } from "./payments";
+import { notifyStaff, openDeliveryTicket } from "./tickets";
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   PENDING: "Aguardando pagamento",
@@ -161,35 +162,56 @@ export async function applyPaymentEvent(event: PaymentEvent, actor: string) {
 
 /** Confirma o pagamento: pedido concluído (entrega digital), contadores de venda atualizados. */
 export async function markOrderPaid(orderId: string, actor: string | null, note = "Pagamento confirmado.") {
-  const order = await prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: { include: { product: { select: { manualDelivery: true } } } } },
+  });
   if (!order) throw new OrderError("Pedido não encontrado.");
   if (order.paymentStatus === "PAID") return order;
   if (order.status === "CANCELLED" || order.status === "REFUNDED")
     throw new OrderError("Não é possível confirmar o pagamento de um pedido cancelado.");
 
+  // Produtos com entrega manual: o pedido fica em processamento até a equipe entregar pelo chat.
+  const manual = order.items.some((i) => i.product?.manualDelivery);
+  const nextStatus: OrderStatus = manual ? "PROCESSING" : "COMPLETED";
+
   const updated = await prisma.$transaction(async (tx) => {
+    // Transição condicional: se duas confirmações chegarem juntas (postback + "Já paguei"),
+    // só a primeira aplica os efeitos.
+    const claimed = await tx.order.updateMany({
+      where: { id: orderId, paymentStatus: { not: "PAID" }, status: { notIn: ["CANCELLED", "REFUNDED"] } },
+      data: { paymentStatus: "PAID", status: nextStatus, paidAt: new Date() },
+    });
+    if (claimed.count === 0) return null;
     await tx.payment.updateMany({ where: { orderId, status: "PENDING" }, data: { status: "PAID" } });
     for (const item of order.items) {
       if (item.productId)
         await tx.product.update({ where: { id: item.productId }, data: { salesCount: { increment: item.quantity } } });
     }
-    await tx.orderStatusHistory.create({ data: { orderId, status: "COMPLETED", note, createdBy: actor } });
-    return tx.order.update({
-      where: { id: orderId },
-      data: { paymentStatus: "PAID", status: "COMPLETED", paidAt: new Date() },
+    await tx.orderStatusHistory.create({
+      data: { orderId, status: nextStatus, note: manual ? `${note} Entrega manual em andamento pelo atendimento.` : note, createdBy: actor },
     });
+    if (manual) await openDeliveryTicket(orderId, tx);
+    return tx.order.findUniqueOrThrow({ where: { id: orderId } });
   });
+  if (!updated) return prisma.order.findUniqueOrThrow({ where: { id: orderId } });
 
+  const ticket = manual ? await prisma.ticket.findUnique({ where: { orderId } }) : null;
   await sendEmail(
     order.customerEmail,
     `Pagamento aprovado — pedido ${formatOrderNumber(order.number)}`,
     emailLayout(
       "Pagamento aprovado!",
-      `<p>Olá, ${escapeHtml(order.customerName)}. Recebemos o pagamento do pedido <strong>${formatOrderNumber(order.number)}</strong> no valor de <strong>${formatMoney(order.totalCents)}</strong>.</p>
-       <p>Seus produtos digitais já estão disponíveis na sua conta.</p>`,
-      { label: "Ver meu pedido", url: absoluteUrl(`/conta/pedidos/${order.number}`) },
+      `<p>Olá, ${escapeHtml(order.customerName)}. Recebemos o pagamento do pedido <strong>${formatOrderNumber(order.number)}</strong> no valor de <strong>${formatMoney(order.totalCents)}</strong>.</p>` +
+        (manual
+          ? `<p>A entrega deste pedido é <strong>manual</strong> e será feita pela nossa equipe no chat de atendimento, em até 24h a 48h.</p>`
+          : `<p>Seus produtos digitais já estão disponíveis na sua conta.</p>`),
+      ticket
+        ? { label: "Abrir chat da entrega", url: absoluteUrl(`/conta/atendimento/${ticket.number}`) }
+        : { label: "Ver meu pedido", url: absoluteUrl(`/conta/pedidos/${order.number}`) },
     ),
   );
+  if (ticket) void notifyStaff(ticket.id, "new");
   await checkLowStock(order.items.map((i) => i.productId).filter(Boolean) as string[]);
   return updated;
 }
@@ -225,6 +247,25 @@ export async function changeOrderStatus(orderId: string, status: OrderStatus, ac
       await tx.payment.updateMany({ where: { orderId }, data: { status: paymentStatus } });
     }
     await tx.orderStatusHistory.create({ data: { orderId, status, note, createdBy: actor } });
+    // Pedido cancelado/reembolsado ou concluído: encerra o chat de entrega, se houver.
+    if (releasing || status === "COMPLETED") {
+      const ticket = await tx.ticket.findUnique({ where: { orderId } });
+      if (ticket && ticket.status !== "CLOSED") {
+        const body = releasing
+          ? `Pedido ${status === "REFUNDED" ? "reembolsado" : "cancelado"}. Este atendimento foi encerrado.`
+          : "Entrega concluída. Obrigado pela compra!";
+        await tx.ticket.update({
+          where: { id: ticket.id },
+          data: {
+            status: "CLOSED",
+            deliveredAt: status === "COMPLETED" ? new Date() : ticket.deliveredAt,
+            customerUnread: true,
+            lastMessageAt: new Date(),
+            messages: { create: { fromStaff: true, system: true, body } },
+          },
+        });
+      }
+    }
     return tx.order.update({ where: { id: orderId }, data: { status, paymentStatus } });
   });
 }

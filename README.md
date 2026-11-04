@@ -48,6 +48,15 @@ Para testar com dados fictícios, use `npm run db:seed:demo`, que também cria u
 
 **Admin** (`/admin`) — visão geral com KPIs e gráficos (faturamento, vendas, crescimento de clientes, mais vendidos, conversão) filtráveis por hoje/7/30/90 dias/período personalizado · produtos (CRUD, imagens, preço, desconto, estoque, ativar/desativar, destacar) · categorias (CRUD, imagem, ordem) · pedidos (busca, filtros, detalhes, status, confirmação de pagamento) · clientes (histórico, total gasto, suspensão) · leads (funil Novo → Em contato → Interessado → Convertido/Perdido, conversão) · cupons · avaliações · configurações (nome, logotipo, cores, dados comerciais, notificações) · banners · permissões administrativas granulares · registro de atividades · caixa de saída de e-mails.
 
+## Atendimento e entrega manual
+
+- **Entrega manual por produto:** marque "Entrega manual" no cadastro do produto (ex.: contas). Após o pagamento, o pedido fica **Em processamento** e abre automaticamente um chat de entrega com a mensagem de boas-vindas (texto em `src/lib/tickets.ts`, `DELIVERY_WELCOME_MESSAGE`).
+- **Admin → Entrega de contas:** fila de entregas pendentes (mais antigas primeiro). No chat, o botão "Modelo de entrega" preenche login/senha; depois **Marcar como entregue** conclui o pedido, encerra o chat e avisa o cliente por e-mail.
+- **Admin → Atendimento:** tickets abertos pelos clientes em **Minha conta → Atendimento**, com abas Pendentes / Respondidos / Encerrados.
+- Os números ao lado das abas no menu mostram as pendências (tickets aguardando a equipe e entregas não concluídas). As conversas se atualizam sozinhas a cada 8 segundos.
+- Os e-mails avisam que há resposta, mas **não incluem o conteúdo** (que pode ter dados de acesso); o cliente lê no site, logado.
+- Permissão administrativa **"Atendimento e entrega de contas"** permite dar acesso só a essa área para atendentes.
+
 ## Pagamentos
 
 - **`sandbox`** (desenvolvimento): instruções de Pix/boleto simuladas e o cliente pode simular aprovação ou recusa. Nenhuma cobrança real. **Bloqueado em produção** — com ele qualquer cliente aprovaria o próprio pedido. Se estiver configurado em produção, a loja usa o modo manual automaticamente.

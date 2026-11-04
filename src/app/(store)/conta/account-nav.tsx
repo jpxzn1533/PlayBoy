@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, Heart, LayoutDashboard, LogOut, Package, Shield, User } from "lucide-react";
+import { CreditCard, Heart, LayoutDashboard, LogOut, MessageSquare, Package, Shield, User } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/conta/pedidos", label: "Histórico de compras", icon: Package },
   { href: "/conta/pagamentos", label: "Pagamentos", icon: CreditCard },
   { href: "/conta/favoritos", label: "Favoritos", icon: Heart },
+  { href: "/conta/atendimento", label: "Atendimento", icon: MessageSquare },
   { href: "/conta/seguranca", label: "Segurança", icon: Shield },
 ];
 

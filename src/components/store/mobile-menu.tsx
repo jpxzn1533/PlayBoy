@@ -57,6 +57,7 @@ export function MobileMenu({
                 <Link href="/conta" className={linkClass}>Minha conta</Link>
                 <Link href="/conta/pedidos" className={linkClass}>Meus pedidos</Link>
                 <Link href="/conta/favoritos" className={linkClass}>Favoritos</Link>
+                <Link href="/conta/atendimento" className={linkClass}>Atendimento</Link>
                 <form action={logoutAction}>
                   <button className={`${linkClass} w-full text-left`}>Sair</button>
                 </form>

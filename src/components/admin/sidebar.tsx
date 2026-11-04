@@ -6,12 +6,14 @@ import { useEffect, useState } from "react";
 import {
   BarChart3,
   FolderTree,
+  Headphones,
   History,
   LogOut,
   Mail,
   Menu,
   MessageSquareText,
   Package,
+  PackageCheck,
   Settings,
   ShieldCheck,
   ShoppingCart,
@@ -27,9 +29,17 @@ import { logoutAction } from "@/app/actions/auth";
 import type { AdminPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-type Item = { href: string; label: string; icon: typeof BarChart3; perm: AdminPermission; badge?: "orders" | "leads" };
+type BadgeKey = "orders" | "leads" | "support" | "delivery";
+type Item = { href: string; label: string; icon: typeof BarChart3; perm: AdminPermission; badge?: BadgeKey };
 const GROUPS: { title: string; items: Item[] }[] = [
   { title: "Geral", items: [{ href: "/admin", label: "Visão geral", icon: BarChart3, perm: "dashboard" }] },
+  {
+    title: "Atendimento",
+    items: [
+      { href: "/admin/atendimento", label: "Atendimento", icon: Headphones, perm: "support", badge: "support" },
+      { href: "/admin/entregas", label: "Entrega de contas", icon: PackageCheck, perm: "support", badge: "delivery" },
+    ],
+  },
   {
     title: "Comercial",
     items: [
@@ -70,7 +80,7 @@ export function AdminSidebar({
   logoUrl: string | null;
   allowed: AdminPermission[];
   user: { name: string; email: string };
-  badges: { orders: number; leads: number };
+  badges: Record<BadgeKey, number>;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -108,7 +118,15 @@ export function AdminSidebar({
                       <Icon className="h-4 w-4" />
                       <span className="flex-1">{label}</span>
                       {count > 0 && (
-                        <span className="rounded-full bg-surface-3 px-1.5 py-px text-[10px] font-semibold text-fg tabular-nums">{count}</span>
+                        <span
+                          className={cn(
+                            "rounded-full px-1.5 py-px text-[10px] font-semibold tabular-nums",
+                            badge === "support" || badge === "delivery" ? "bg-warning text-black" : "bg-surface-3 text-fg",
+                          )}
+                          title={`${count} pendente(s)`}
+                        >
+                          {count}
+                        </span>
                       )}
                     </Link>
                   );

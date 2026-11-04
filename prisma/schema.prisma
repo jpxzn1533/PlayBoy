@@ -30,29 +30,31 @@ enum TokenType {
 }
 
 model User {
-  id               String        @id @default(cuid())
-  name             String
-  email            String        @unique
-  passwordHash     String
-  role             Role          @default(CUSTOMER)
+  id              String        @id @default(cuid())
+  name            String
+  email           String        @unique
+  passwordHash    String
+  role            Role          @default(CUSTOMER)
   // Permissões administrativas granulares (ver lib/permissions.ts). "*" = super admin.
-  permissions      String[]      @default([])
-  status           AccountStatus @default(ACTIVE)
-  phone            String?
+  permissions     String[]      @default([])
+  status          AccountStatus @default(ACTIVE)
+  phone           String?
   // CPF ou CNPJ (somente números). Exigido pelo gateway de pagamento no checkout.
-  document         String?
-  emailVerifiedAt  DateTime?
-  lastActiveAt     DateTime?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  document        String?
+  emailVerifiedAt DateTime?
+  lastActiveAt    DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  sessions     Session[]
-  tokens       AuthToken[]
-  orders       Order[]
-  reviews      Review[]
-  favorites    Favorite[]
-  cart         Cart?
-  auditLogs    AuditLog[]
+  sessions       Session[]
+  tokens         AuthToken[]
+  orders         Order[]
+  reviews        Review[]
+  favorites      Favorite[]
+  cart           Cart?
+  auditLogs      AuditLog[]
+  tickets        Ticket[]
+  ticketMessages TicketMessage[]
 
   @@index([role])
   @@index([createdAt])
@@ -100,27 +102,29 @@ model Category {
 }
 
 model Product {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   name             String
-  slug             String   @unique
+  slug             String    @unique
   shortDescription String
   description      String
   priceCents       Int
   // Desconto percentual opcional (0–90). O preço final é calculado em lib/pricing.ts.
-  discountPercent  Int      @default(0)
-  sku              String?  @unique
-  stock            Int      @default(0)
-  active           Boolean  @default(true)
-  featured         Boolean  @default(false)
+  discountPercent  Int       @default(0)
+  sku              String?   @unique
+  stock            Int       @default(0)
+  active           Boolean   @default(true)
+  featured         Boolean   @default(false)
   platform         String?
-  deliveryType     String   @default("Entrega digital imediata")
+  deliveryType     String    @default("Entrega digital imediata")
   // Lista de pares { label, value } exibida em "Informações detalhadas".
-  specs            Json     @default("[]")
-  salesCount       Int      @default(0)
+  specs            Json      @default("[]")
+  salesCount       Int       @default(0)
+  // Entrega manual: após o pagamento, o pedido fica em processamento e abre um chat de entrega.
+  manualDelivery   Boolean   @default(false)
   categoryId       String?
   category         Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   images     ProductImage[]
   reviews    Review[]
@@ -234,29 +238,30 @@ enum PaymentMethod {
 }
 
 model Order {
-  id             String        @id @default(cuid())
-  number         Int           @unique @default(autoincrement())
-  userId         String
-  user           User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  customerName   String
-  customerEmail  String
-  status         OrderStatus   @default(PENDING)
-  paymentStatus  PaymentStatus @default(PENDING)
-  paymentMethod  PaymentMethod
-  subtotalCents  Int
-  discountCents  Int           @default(0)
-  totalCents     Int
-  couponId       String?
-  coupon         Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  couponCode     String?
-  notes          String?
-  paidAt         DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  number        Int           @unique @default(autoincrement())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  customerName  String
+  customerEmail String
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentMethod PaymentMethod
+  subtotalCents Int
+  discountCents Int           @default(0)
+  totalCents    Int
+  couponId      String?
+  coupon        Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponCode    String?
+  notes         String?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   items    OrderItem[]
   payments Payment[]
   history  OrderStatusHistory[]
+  ticket   Ticket?
 
   @@index([userId])
   @@index([createdAt])
@@ -279,13 +284,13 @@ model OrderItem {
 }
 
 model Payment {
-  id          String        @id @default(cuid())
-  orderId     String
-  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  provider    String
-  method      PaymentMethod
-  amountCents Int
-  status      PaymentStatus @default(PENDING)
+  id           String        @id @default(cuid())
+  orderId      String
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider     String
+  method       PaymentMethod
+  amountCents  Int
+  status       PaymentStatus @default(PENDING)
   providerRef  String?       @unique
   // Instruções retornadas pelo provedor (código Pix, linha digitável etc.)
   instructions Json?
@@ -305,6 +310,55 @@ model OrderStatusHistory {
   createdAt DateTime    @default(now())
 
   @@index([orderId])
+}
+
+// ───────────────────────────── Atendimento (tickets)
+
+enum TicketType {
+  SUPPORT // aberto pelo cliente na área de atendimento
+  DELIVERY // aberto automaticamente para pedidos com entrega manual
+}
+
+enum TicketStatus {
+  OPEN // aguardando a equipe
+  WAITING_CUSTOMER // respondido, aguardando o cliente
+  CLOSED // encerrado (ou entrega concluída)
+}
+
+model Ticket {
+  id             String          @id @default(cuid())
+  number         Int             @unique @default(autoincrement())
+  type           TicketType      @default(SUPPORT)
+  status         TicketStatus    @default(OPEN)
+  subject        String
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId        String?         @unique
+  order          Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  deliveredAt    DateTime?
+  customerUnread Boolean         @default(false)
+  lastMessageAt  DateTime        @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  messages       TicketMessage[]
+
+  @@index([type, status])
+  @@index([userId])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  fromStaff Boolean  @default(false)
+  // Mensagem automática do sistema (ex.: boas-vindas da entrega manual)
+  system    Boolean  @default(false)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
 }
 
 // ───────────────────────────── CRM & marketing
@@ -358,31 +412,31 @@ model Visit {
 // ───────────────────────────── Configurações & auditoria
 
 model StoreSettings {
-  id                 Int      @id @default(1)
-  storeName          String   @default("PLAYBOY STORE")
-  tagline            String   @default("A loja gamer premium.")
-  logoUrl            String?
-  accentColor        String   @default("#ffffff")
-  backgroundColor    String   @default("#080808")
-  contactEmail       String   @default("contato@playboystore.com.br")
-  contactPhone       String?
-  whatsapp           String?
-  companyName        String?
-  companyDocument    String?
-  address            String?
-  businessHours      String?
-  instagramUrl       String?
-  discordUrl         String?
-  youtubeUrl         String?
-  notifyNewOrder     Boolean  @default(true)
-  notifyNewLead      Boolean  @default(true)
-  notifyLowStock     Boolean  @default(true)
-  lowStockThreshold  Int      @default(5)
-  notificationEmail  String?
+  id                   Int      @id @default(1)
+  storeName            String   @default("PLAYBOY STORE")
+  tagline              String   @default("A loja gamer premium.")
+  logoUrl              String?
+  accentColor          String   @default("#ffffff")
+  backgroundColor      String   @default("#080808")
+  contactEmail         String   @default("contato@playboystore.com.br")
+  contactPhone         String?
+  whatsapp             String?
+  companyName          String?
+  companyDocument      String?
+  address              String?
+  businessHours        String?
+  instagramUrl         String?
+  discordUrl           String?
+  youtubeUrl           String?
+  notifyNewOrder       Boolean  @default(true)
+  notifyNewLead        Boolean  @default(true)
+  notifyLowStock       Boolean  @default(true)
+  lowStockThreshold    Int      @default(5)
+  notificationEmail    String?
   // Aviso de compras recentes na loja (apenas pedidos pagos reais)
-  purchasePopupEnabled Boolean @default(true)
-  purchasePopupMinutes Int     @default(20)
-  updatedAt          DateTime @updatedAt
+  purchasePopupEnabled Boolean  @default(true)
+  purchasePopupMinutes Int      @default(20)
+  updatedAt            DateTime @updatedAt
 }
 
 model AuditLog {

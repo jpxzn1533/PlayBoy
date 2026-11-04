@@ -110,6 +110,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                     <Badge tone={p.active ? "success" : "neutral"}>{p.active ? "Ativo" : "Inativo"}</Badge>
                   </ActionButton>
                   {p.featured && <Badge tone="solid">Destaque</Badge>}
+                  {p.manualDelivery && <Badge tone="warning">Entrega manual</Badge>}
                 </div>
               </Td>
               <Td>

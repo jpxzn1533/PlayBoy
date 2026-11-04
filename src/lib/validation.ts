@@ -221,7 +221,27 @@ export const productSchema = z.object({
   specs: specsSchema,
   active: checkbox,
   featured: checkbox,
+  manualDelivery: checkbox,
   images: z.array(imagePath).max(10, "Máximo de 10 imagens."),
+});
+
+// ───────── Atendimento
+
+export const ticketMessageSchema = z.object({
+  body: z
+    .string({ required_error: "Escreva sua mensagem." })
+    .trim()
+    .min(1, "Escreva sua mensagem.")
+    .max(4000, "Mensagem muito longa (máximo de 4.000 caracteres)."),
+});
+
+export const newTicketSchema = ticketMessageSchema.extend({
+  subject: trimmed(3, 120, "Assunto"),
+  orderNumber: z
+    .string()
+    .optional()
+    .transform((v) => (v ? Number(v.replace(/\D/g, "")) : null))
+    .refine((v) => v === null || (Number.isInteger(v) && v > 0), "Pedido inválido."),
 });
 
 export const categorySchema = z.object({

@@ -25,6 +25,7 @@ export type ProductFormData = {
   specs: { label: string; value: string }[];
   active: boolean;
   featured: boolean;
+  manualDelivery: boolean;
   images: string[];
 };
 
@@ -92,6 +93,18 @@ export function ProductForm({ product, categories }: { product?: ProductFormData
           <div className="space-y-3">
             <Checkbox name="active" defaultChecked={product?.active ?? true} label="Produto ativo (visível na loja)" />
             <Checkbox name="featured" defaultChecked={product?.featured ?? false} label="Destacar na página inicial" />
+            <Checkbox
+              name="manualDelivery"
+              defaultChecked={product?.manualDelivery ?? false}
+              label={
+                <>
+                  Entrega manual
+                  <span className="mt-0.5 block text-xs text-subtle">
+                    Após o pagamento, o pedido fica em processamento e abre um chat de entrega em Admin → Entrega de contas.
+                  </span>
+                </>
+              }
+            />
           </div>
         </Panel>
 
